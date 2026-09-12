@@ -2,40 +2,57 @@ import os
 from urllib.parse import quote
 import requests
 
-# 读取环境变量（默认城市设为：洛阳）
+# 读取环境变量（默认城市：洛阳）
 QWEATHER_KEY = os.getenv("QWEATHER_KEY")
 BARK_KEY = os.getenv("BARK_KEY")
 CITY_NAME = os.getenv("CITY_NAME", "洛阳")
 
-# 项目专属 API 域名（和风天气新版 API KEY 的所有请求均使用此域名）
+# 项目专属 API 域名
 API_HOST = "mx564wyefk.re.qweatherapi.com"
+
+# 常用城市 Location ID 备选字典
+CITY_ID_MAP = {
+    "洛阳": "101180901",
+    "北京": "101010100",
+    "上海": "101020100",
+    "广州": "101280101",
+    "深圳": "101280601",
+}
 
 
 def get_location_id(city_name):
-    """查询城市 Location ID"""
+    """查询城市 Location ID（兼容 /geo/v2/city/lookup 专属路由与本地回退）"""
     safe_city_name = quote(city_name)
-    url = f"https://{API_HOST}/v2/city/lookup?location={safe_city_name}&key={QWEATHER_KEY}"
 
-    try:
-        res = requests.get(url, timeout=10)
-        if res.status_code != 200:
-            print(
-                f"[错误] 城市查询 API 返回 HTTP {res.status_code}: {res.text}"
-            )
-            return None, city_name
+    # 专属域名下 GeoAPI 的标准路由带有 /geo 前缀
+    urls = [
+        f"https://{API_HOST}/geo/v2/city/lookup?location={safe_city_name}&key={QWEATHER_KEY}",
+        f"https://{API_HOST}/v2/city/lookup?location={safe_city_name}&key={QWEATHER_KEY}",
+    ]
 
-        data = res.json()
-        if data.get("code") == "200" and data.get("location"):
-            return data["location"][0]["id"], data["location"][0]["name"]
-        else:
-            print(f"[错误] 城市查询失败，返回代码: {data.get('code')}")
-    except Exception as e:
-        print(f"[错误] 查询城市 ID 请求失败: {e}")
+    for url in urls:
+        try:
+            res = requests.get(url, timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("code") == "200" and data.get("location"):
+                    return (
+                        data["location"][0]["id"],
+                        data["location"][0]["name"],
+                    )
+        except Exception:
+            continue
+
+    # 若线上查询受阻，自动回退到预设 Location ID
+    if city_name in CITY_ID_MAP:
+        print(f"[提示] 已匹配预设 Location ID: {city_name}")
+        return CITY_ID_MAP[city_name], city_name
+
     return None, city_name
 
 
 def get_weather_data(location_id):
-    """获取洛阳今日天气与生活指数"""
+    """获取天气预报与生活指数"""
     weather_url = (
         f"https://{API_HOST}/v7/weather/3d?location={location_id}&key={QWEATHER_KEY}"
     )
@@ -46,7 +63,7 @@ def get_weather_data(location_id):
         i_res = requests.get(indices_url, timeout=10).json()
 
         if w_res.get("code") != "200":
-            print(f"[错误] 天气接口返回代码: {w_res.get('code')}")
+            print(f"[错误] 天气接口返回异常代码: {w_res.get('code')}")
             return None
 
         today = w_res["daily"][0]
@@ -87,7 +104,7 @@ def send_bark(title, content):
     try:
         res = requests.post(url, json=payload, timeout=10).json()
         if res.get("code") == 200:
-            print("[成功] 洛阳天气预报已成功推送到 Bark！")
+            print("[成功] 天气预报已成功推送到 Bark！")
         else:
             print(f"[失败] Bark 响应异常: {res}")
     except Exception as e:
