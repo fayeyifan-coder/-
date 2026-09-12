@@ -1,4 +1,5 @@
 import os
+from urllib.parse import quote
 import requests
 
 # 环境变量读取
@@ -6,35 +7,48 @@ QWEATHER_KEY = os.getenv("QWEATHER_KEY")
 BARK_KEY = os.getenv("BARK_KEY")
 CITY_NAME = os.getenv("CITY_NAME", "北京")
 
+# 和风天气分配给你的专属 API 域名
+API_HOST = "mx564wyefk.re.qweatherapi.com"
+
 
 def get_location_id(city_name):
     """查询城市 Location ID"""
-    url = f"https://geoapi.qweather.com/v2/city/lookup?location={city_name}&key={QWEATHER_KEY}"
+    safe_city_name = quote(city_name)
+    url = f"https://{API_HOST}/v2/city/lookup?location={safe_city_name}&key={QWEATHER_KEY}"
     try:
-        res = requests.get(url, timeout=10).json()
-        if res.get("code") == "200" and res.get("location"):
-            return res["location"][0]["id"], res["location"][0]["name"]
+        res = requests.get(url, timeout=10)
+        if res.status_code != 200:
+            print(
+                f"[错误] 和风天气 API 返回 HTTP {res.status_code}: {res.text}"
+            )
+            return None, city_name
+
+        data = res.json()
+        if data.get("code") == "200" and data.get("location"):
+            return data["location"][0]["id"], data["location"][0]["name"]
+        else:
+            print(f"[错误] 城市查询失败，返回代码: {data.get('code')}")
     except Exception as e:
-        print(f"[错误] 查询城市 ID 失败: {e}")
+        print(f"[错误] 查询城市 ID 请求失败: {e}")
     return None, city_name
 
 
 def get_weather_data(location_id):
     """获取今日天气与穿衣/出行生活指数"""
-    # 3天天气预报接口
-    weather_url = f"https://devapi.qweather.com/v7/weather/3d?location={location_id}&key={QWEATHER_KEY}"
-    # 生活指数接口 (3: 穿衣, 6: 旅游/出行)
-    indices_url = f"https://devapi.qweather.com/v7/indices/1d?location={location_id}&key={QWEATHER_KEY}&type=3,6"
+    weather_url = (
+        f"https://{API_HOST}/v7/weather/3d?location={location_id}&key={QWEATHER_KEY}"
+    )
+    indices_url = f"https://{API_HOST}/v7/indices/1d?location={location_id}&key={QWEATHER_KEY}&type=3,6"
 
     try:
         w_res = requests.get(weather_url, timeout=10).json()
         i_res = requests.get(indices_url, timeout=10).json()
 
         if w_res.get("code") != "200":
+            print(f"[错误] 天气接口返回代码: {w_res.get('code')}")
             return None
 
         today = w_res["daily"][0]
-
         dressing_idx = "暂无建议"
         travel_idx = "暂无建议"
 
