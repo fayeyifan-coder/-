@@ -2,25 +2,25 @@ import os
 from urllib.parse import quote
 import requests
 
-# 环境变量读取
+# 读取环境变量（默认城市设为：洛阳）
 QWEATHER_KEY = os.getenv("QWEATHER_KEY")
 BARK_KEY = os.getenv("BARK_KEY")
-CITY_NAME = os.getenv("CITY_NAME", "北京")
+CITY_NAME = os.getenv("CITY_NAME", "洛阳")
 
-# 专属项目 API 域名（仅用于天气预报和生活指数）
+# 项目专属 API 域名（和风天气新版 API KEY 的所有请求均使用此域名）
 API_HOST = "mx564wyefk.re.qweatherapi.com"
 
 
 def get_location_id(city_name):
-    """查询城市 Location ID（使用 GeoAPI 独立域名）"""
+    """查询城市 Location ID"""
     safe_city_name = quote(city_name)
-    # 城市搜索 API 固定使用 geoapi.qweather.com
-    url = f"https://geoapi.qweather.com/v2/city/lookup?location={safe_city_name}&key={QWEATHER_KEY}"
+    url = f"https://{API_HOST}/v2/city/lookup?location={safe_city_name}&key={QWEATHER_KEY}"
+
     try:
         res = requests.get(url, timeout=10)
         if res.status_code != 200:
             print(
-                f"[错误] 和风城市查询 API 返回 HTTP {res.status_code}: {res.text}"
+                f"[错误] 城市查询 API 返回 HTTP {res.status_code}: {res.text}"
             )
             return None, city_name
 
@@ -35,7 +35,7 @@ def get_location_id(city_name):
 
 
 def get_weather_data(location_id):
-    """获取今日天气与穿衣/出行生活指数（使用专属 API Host）"""
+    """获取洛阳今日天气与生活指数"""
     weather_url = (
         f"https://{API_HOST}/v7/weather/3d?location={location_id}&key={QWEATHER_KEY}"
     )
@@ -76,7 +76,7 @@ def get_weather_data(location_id):
 
 
 def send_bark(title, content):
-    """推送至 Bark"""
+    """推送至 Bark App"""
     url = f"https://api.day.app/{BARK_KEY}"
     payload = {
         "title": title,
@@ -87,7 +87,7 @@ def send_bark(title, content):
     try:
         res = requests.post(url, json=payload, timeout=10).json()
         if res.get("code") == 200:
-            print("[成功] 天气通知已成功推送给 Bark！")
+            print("[成功] 洛阳天气预报已成功推送到 Bark！")
         else:
             print(f"[失败] Bark 响应异常: {res}")
     except Exception as e:
