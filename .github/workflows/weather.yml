@@ -1,0 +1,28 @@
+name: Daily Weather Push
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # 北京时间每天早上 08:00 触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Weather Script
+        env:
+          QWEATHER_KEY: ${{ secrets.QWEATHER_KEY }}
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          CITY_NAME: ${{ secrets.CITY_NAME }}
+        run: python main.py
