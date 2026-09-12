@@ -7,19 +7,20 @@ QWEATHER_KEY = os.getenv("QWEATHER_KEY")
 BARK_KEY = os.getenv("BARK_KEY")
 CITY_NAME = os.getenv("CITY_NAME", "北京")
 
-# 和风天气分配给你的专属 API 域名
+# 专属项目 API 域名（仅用于天气预报和生活指数）
 API_HOST = "mx564wyefk.re.qweatherapi.com"
 
 
 def get_location_id(city_name):
-    """查询城市 Location ID"""
+    """查询城市 Location ID（使用 GeoAPI 独立域名）"""
     safe_city_name = quote(city_name)
-    url = f"https://{API_HOST}/v2/city/lookup?location={safe_city_name}&key={QWEATHER_KEY}"
+    # 城市搜索 API 固定使用 geoapi.qweather.com
+    url = f"https://geoapi.qweather.com/v2/city/lookup?location={safe_city_name}&key={QWEATHER_KEY}"
     try:
         res = requests.get(url, timeout=10)
         if res.status_code != 200:
             print(
-                f"[错误] 和风天气 API 返回 HTTP {res.status_code}: {res.text}"
+                f"[错误] 和风城市查询 API 返回 HTTP {res.status_code}: {res.text}"
             )
             return None, city_name
 
@@ -34,7 +35,7 @@ def get_location_id(city_name):
 
 
 def get_weather_data(location_id):
-    """获取今日天气与穿衣/出行生活指数"""
+    """获取今日天气与穿衣/出行生活指数（使用专属 API Host）"""
     weather_url = (
         f"https://{API_HOST}/v7/weather/3d?location={location_id}&key={QWEATHER_KEY}"
     )
